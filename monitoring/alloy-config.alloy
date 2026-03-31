@@ -1,0 +1,80 @@
+// --- 1. ПРИЕМ ЛОГОВ ИЗ КОДА (RUST OTLP) ---
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  output {
+    logs   = [otelcol.exporter.loki.otlp_transform.input]
+    traces = [otelcol.exporter.otlp.blackhole.input]
+  }
+}
+
+// Конвертируем OTEL в формат Loki и отправляем на переименование
+otelcol.exporter.loki "otlp_transform" {
+  forward_to = [loki.relabel.common_labels.receiver]
+}
+
+otelcol.exporter.otlp "blackhole" {
+  client {
+    endpoint = "localhost:4317"
+  }
+}
+
+// --- 2. АВТОМАТИЧЕСКИЙ СБОР ЛОГОВ ИЗ DOCKER ---
+discovery.docker "linux_containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Фильтруем контейнеры: только те, где logging=true
+discovery.relabel "dynamic_filter" {
+  targets = discovery.docker.linux_containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_logging"]
+    regex         = "true"
+    action        = "keep"
+  }
+}
+
+loki.source.docker "docker_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.dynamic_filter.output
+  forward_to = [loki.relabel.common_labels.receiver]
+}
+
+// --- 3. ЦЕНТРАЛЬНЫЙ УЗЕЛ ОБРАБОТКИ МЕТОК ---
+// Сюда стекаются логи и из OTLP, и из Docker
+loki.relabel "common_labels" {
+  forward_to = [loki.write.local_loki.receiver]
+
+  // Если это логи из Docker, берем имя из labels: service_name
+  rule {
+    source_labels = ["__meta_docker_container_label_service_name"]
+    target_label  = "service_name"
+  }
+
+  // Если это логи из Docker, чистим имя контейнера
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Если service_name всё еще пустой (для OTLP),
+  // Loki сам попробует подставить его из атрибутов,
+  // либо мы можем задать дефолт:
+  rule {
+    source_labels = ["service_name"]
+    regex         = ""
+    action        = "replace"
+    replacement   = "equating-api"
+    target_label  = "service_name"
+  }
+}
+
+// --- 4. ФИНАЛЬНАЯ ЗАПИСЬ В LOKI ---
+loki.write "local_loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
