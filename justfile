@@ -1,3 +1,5 @@
+set shell := ["powershell.exe", "-c"]
+
 # Информация о всех командах
 help:
     just --list
