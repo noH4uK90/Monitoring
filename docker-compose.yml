@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   grafana:
     image: grafana/grafana:latest
@@ -9,6 +15,17 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    logging: *default-logging
     networks:
       - monitoring_network
       - gateway_network
@@ -17,6 +34,11 @@ services:
     image: grafana/loki:latest
     container_name: monitoring_loki
     restart: unless-stopped
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/config.yaml
+      - loki_data:/loki
+    logging: *default-logging
     networks:
       - monitoring_network
 
@@ -27,8 +49,14 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.retention.size=512MB'
+      - '--query.max-concurrency=5'
+      - '--query.max-samples=20000000'
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    logging: *default-logging
     networks:
       - monitoring_network
 
@@ -42,6 +70,19 @@ services:
     volumes:
       - ./monitoring/alloy-config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    logging: *default-logging
+    networks:
+      - monitoring_network
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: monitoring_tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/config.yaml
+    volumes:
+      - ./monitoring/tempo-config.yaml:/etc/tempo/config.yaml
+      - tempo_data:/var/tempo
+    logging: *default-logging
     networks:
       - monitoring_network
 
@@ -50,3 +91,9 @@ networks:
     external: true
   gateway_network:
     external: true
+
+volumes:
+  loki_data:
+  prometheus_data:
+  tempo_data:
+  grafana_data:

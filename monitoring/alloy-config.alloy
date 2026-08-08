@@ -5,7 +5,7 @@ otelcol.receiver.otlp "default" {
   }
   output {
     logs   = [otelcol.exporter.loki.otlp_transform.input]
-    traces = [otelcol.exporter.otlp.blackhole.input]
+    traces = [otelcol.exporter.otlp.tempo.input]
   }
 }
 
@@ -14,9 +14,12 @@ otelcol.exporter.loki "otlp_transform" {
   forward_to = [loki.relabel.common_labels.receiver]
 }
 
-otelcol.exporter.otlp "blackhole" {
+otelcol.exporter.otlp "tempo" {
   client {
-    endpoint = "localhost:4317"
+    endpoint = "tempo:4317"
+    tls {
+      insecure = true
+    }
   }
 }
 
