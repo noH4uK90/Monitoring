@@ -70,6 +70,7 @@ services:
     volumes:
       - ./monitoring/alloy-config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
     logging: *default-logging
     networks:
       - monitoring_network
@@ -97,3 +98,4 @@ volumes:
   prometheus_data:
   tempo_data:
   grafana_data:
+  alloy_data:
