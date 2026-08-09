@@ -7,10 +7,12 @@ help:
 # Запустить контейнеры
 up:
     docker compose up -d
-    # prometheus.yml примонтирован как bind mount — `docker compose up -d`
-    # не видит изменений содержимого файла и не пересоздаёт контейнер,
-    # поэтому новые scrape-таргеты без явного reload молча не подхватываются
+    # prometheus.yml и alloy-config.alloy примонтированы как bind mount —
+    # `docker compose up -d` не видит изменений содержимого файла и не
+    # пересоздаёт контейнер, поэтому конфиг без явного reload молча не
+    # подхватывается
     just reload-prometheus
+    just reload-alloy
 
 # Остановить контейнеры
 stop:
@@ -24,7 +26,11 @@ down:
 reload-prometheus:
     docker kill -s HUP monitoring_prometheus
 
-# Перезапустить Alloy (когда он залипает на удалённом контейнере
+# Перечитать конфиг Alloy без потери positions (SIGHUP = reload, как у Prometheus)
+reload-alloy:
+    docker kill -s HUP alloy
+
+# Полный перезапуск Alloy (когда он залипает на удалённом контейнере
 # после пересоздания сервиса и перестаёт видеть его логи в Loki)
 restart-alloy:
     docker restart alloy

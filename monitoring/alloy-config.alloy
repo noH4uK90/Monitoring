@@ -28,7 +28,10 @@ discovery.docker "linux_containers" {
   host = "unix:///var/run/docker.sock"
 }
 
-// Фильтруем контейнеры: только те, где logging=true
+// Фильтруем контейнеры и сразу поднимаем нужные docker-лейблы в обычные.
+// Важно делать это здесь, а не в loki.relabel "common_labels" ниже —
+// __meta_docker_* существуют только на уровне discovery, loki.source.docker
+// их в сами записи лога не пробрасывает, так что после него они уже пустые.
 discovery.relabel "dynamic_filter" {
   targets = discovery.docker.linux_containers.targets
 
@@ -36,6 +39,17 @@ discovery.relabel "dynamic_filter" {
     source_labels = ["__meta_docker_container_label_logging"]
     regex         = "true"
     action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_service_name"]
+    target_label  = "service_name"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
   }
 }
 
@@ -46,22 +60,11 @@ loki.source.docker "docker_logs" {
 }
 
 // --- 3. ЦЕНТРАЛЬНЫЙ УЗЕЛ ОБРАБОТКИ МЕТОК ---
-// Сюда стекаются логи и из OTLP, и из Docker
+// Сюда стекаются логи и из OTLP, и из Docker. Docker-логи уже приходят с
+// service_name/container (см. discovery.relabel выше) — здесь только
+// достраиваем то, что нужно OTLP-логам без атрибута service.name.
 loki.relabel "common_labels" {
   forward_to = [loki.write.local_loki.receiver]
-
-  // Если это логи из Docker, берем имя из labels: service_name
-  rule {
-    source_labels = ["__meta_docker_container_label_service_name"]
-    target_label  = "service_name"
-  }
-
-  // Если это логи из Docker, чистим имя контейнера
-  rule {
-    source_labels = ["__meta_docker_container_name"]
-    regex         = "/(.*)"
-    target_label  = "container"
-  }
 
   rule {
     source_labels = ["service_name", "container"]
