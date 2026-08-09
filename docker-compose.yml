@@ -75,7 +75,7 @@ services:
       - monitoring_network
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:2.8.0
     container_name: monitoring_tempo
     restart: unless-stopped
     command: -config.file=/etc/tempo/config.yaml
