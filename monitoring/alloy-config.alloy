@@ -63,14 +63,12 @@ loki.relabel "common_labels" {
     target_label  = "container"
   }
 
-  // Если service_name всё еще пустой (для OTLP),
-  // Loki сам попробует подставить его из атрибутов,
-  // либо мы можем задать дефолт:
   rule {
-    source_labels = ["service_name"]
-    regex         = ""
+    source_labels = ["service_name", "container"]
+    separator     = ";"
+    regex         = ";(.+)"
     action        = "replace"
-    replacement   = "equating-api"
+    replacement   = "$1"
     target_label  = "service_name"
   }
 }
