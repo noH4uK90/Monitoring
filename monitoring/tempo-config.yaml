@@ -15,6 +15,15 @@ compactor:
   compaction:
     block_retention: 168h
 
+metrics_generator:
+  storage:
+    path: /var/tempo/generator/wal
+  traces_storage:
+    path: /var/tempo/generator/traces
+  processor:
+    local_blocks:
+      flush_to_storage: true
+
 storage:
   trace:
     backend: local
@@ -22,3 +31,8 @@ storage:
       path: /var/tempo/traces
     wal:
       path: /var/tempo/wal
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [local-blocks]

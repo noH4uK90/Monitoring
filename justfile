@@ -24,6 +24,11 @@ down:
 reload-prometheus:
     docker kill -s HUP monitoring_prometheus
 
+# Перезапустить Alloy (когда он залипает на удалённом контейнере
+# после пересоздания сервиса и перестаёт видеть его логи в Loki)
+restart-alloy:
+    docker restart alloy
+
 # Создать сеть для мониторинга
 create-network:
     docker network create monitoring_network
