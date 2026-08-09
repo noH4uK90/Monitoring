@@ -7,6 +7,10 @@ help:
 # Запустить контейнеры
 up:
     docker compose up -d
+    # prometheus.yml примонтирован как bind mount — `docker compose up -d`
+    # не видит изменений содержимого файла и не пересоздаёт контейнер,
+    # поэтому новые scrape-таргеты без явного reload молча не подхватываются
+    just reload-prometheus
 
 # Остановить контейнеры
 stop:
